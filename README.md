@@ -1,2 +1,3 @@
 # organize-simples
-App par controle de tarefas e financas
+
+App para controle de tarefas e financas
