@@ -3,24 +3,30 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"os"
+	"time"
 
 	"github.com/cavejondev/organize-simples/internal/repositories"
+	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// Tipos de request e response
+// LoginRequest é o modelo de request deve chegar ao service
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
 }
 
+// LoginResponse é o modelo de resposta que deve ser retornado pelo service
 type LoginResponse struct {
-	Message string `json:"message"`
+	Token string `json:"token"`
 }
 
 // Erros
 var (
 	ErroEmailSenhaInvalido = errors.New("email ou senha inválidos")
+	ErroJWTNaoConfigurado  = errors.New("JWT_SECRET não definido")
 )
 
 // Login autentica o usuário
@@ -39,5 +45,28 @@ func Login(req LoginRequest) (*LoginResponse, error) {
 		return nil, ErroEmailSenhaInvalido
 	}
 
-	return &LoginResponse{Message: "login ok"}, nil
+	// Criar token JWT
+	secret := os.Getenv("JWT_SECRET")
+	if secret == "" {
+		return nil, ErroJWTNaoConfigurado
+	}
+
+	expHours := 24 // padrão
+	if v := os.Getenv("JWT_EXPIRE_HOURS"); v != "" {
+		// converte string para int
+		fmt.Sscanf(v, "%d", &expHours)
+	}
+
+	claims := jwt.MapClaims{
+		"idUsuario": user.ID,
+		"exp":       time.Now().Add(time.Hour * time.Duration(expHours)).Unix(),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	ss, err := token.SignedString([]byte(secret))
+	if err != nil {
+		return nil, err
+	}
+
+	return &LoginResponse{Token: ss}, nil
 }
