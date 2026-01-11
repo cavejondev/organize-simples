@@ -1,6 +1,6 @@
 # organize-simples
 
-App para controle de tarefas e finanças.
+App para controle de tarefas.
 
 **Versão:** 1.0
 
