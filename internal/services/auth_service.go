@@ -1,4 +1,5 @@
 // Package services e o pacote que contem todos os serviços da aplicação
+// Package services e o pacote que contem todos os serviços da aplicação
 package services
 
 import (
@@ -6,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/cavejondev/organize-simples/internal/domain/repositories"
 	"github.com/golang-jwt/jwt/v5"
@@ -62,16 +64,19 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 		return nil, ErroEmailSenhaInvalido
 	}
 
-	err = bcrypt.CompareHashAndPassword(
+	if err := bcrypt.CompareHashAndPassword(
 		[]byte(usuario.Senha),
 		[]byte(req.Senha),
-	)
-	if err != nil {
+	); err != nil {
 		return nil, ErroEmailSenhaInvalido
 	}
 
+	now := time.Now()
+
 	claims := jwt.MapClaims{
 		"idUsuario": usuario.ID,
+		"iat":       now.Unix(),
+		"exp":       now.Add(time.Duration(s.jwtExpHours) * time.Hour).Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

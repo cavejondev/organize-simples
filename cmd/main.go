@@ -8,6 +8,7 @@ import (
 
 	"github.com/cavejondev/organize-simples/internal/db"
 	"github.com/cavejondev/organize-simples/internal/handlers"
+	"github.com/cavejondev/organize-simples/internal/middlewares"
 	infraRepo "github.com/cavejondev/organize-simples/internal/repositories"
 	"github.com/cavejondev/organize-simples/internal/services"
 
@@ -17,7 +18,7 @@ import (
 )
 
 func main() {
-	// Carrega variáveis de ambiente
+	// ENV
 	if err := godotenv.Load(); err != nil {
 		log.Println("arquivo .env não encontrado, usando variáveis do sistema")
 	}
@@ -28,7 +29,7 @@ func main() {
 		port = "8080"
 	}
 
-	// Conexão com Postgres
+	// DB
 	ctx := context.Background()
 	dbPool, err := db.NewPostgresPool(ctx)
 	if err != nil {
@@ -36,25 +37,34 @@ func main() {
 	}
 	defer dbPool.Close()
 
-	// Repositories (infra)
 	usuarioRepo := infraRepo.NewUsuarioRepositoryPg(dbPool)
+	tarefaRepo := infraRepo.NewTarefaRepositoryPg(dbPool)
 
-	// Services
 	authService, err := services.NewAuthService(usuarioRepo)
 	if err != nil {
 		log.Fatal("erro ao criar AuthService:", err)
 	}
 
-	// Handlers
-	authHandler := handlers.NewAuthHandler(authService)
+	tarefaService := services.NewTarefaService(tarefaRepo)
 
-	// Router
+	authHandler := handlers.NewAuthHandler(authService)
+	tarefaHandler := handlers.NewTarefaHandler(tarefaService)
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
-	// Rotas
+	// Pública
 	r.Post("/login", authHandler.Login)
+
+	// Protegidas
+	r.Route("/tarefa", func(rt chi.Router) {
+		rt.Use(middlewares.JWTAuth)
+
+		rt.Post("/", tarefaHandler.Criar)
+		rt.Get("/", tarefaHandler.Listar)
+		rt.Put("/{id}", tarefaHandler.Atualizar)
+	})
 
 	log.Println("Servidor rodando na porta", port)
 	log.Fatal(http.ListenAndServe(":"+port, r))

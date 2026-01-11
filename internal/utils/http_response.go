@@ -9,8 +9,8 @@ import (
 // Response padrão para JSON
 type Response struct {
 	Codigo   string      `json:"codigo"`
-	Mensagem string      `json:"mensagem"`
-	Dados    interface{} `json:"dados"`
+	Mensagem string      `json:"mensagem,omitempty"`
+	Dados    interface{} `json:"dados,omitempty"`
 }
 
 // JSON envia uma resposta HTTP com status e payload
