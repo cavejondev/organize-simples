@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/cavejondev/organize-simples/internal/domain/repositories"
 	"github.com/golang-jwt/jwt/v5"
@@ -20,13 +19,13 @@ var (
 
 // LoginRequest é o modelo de request que chega ao service
 type LoginRequest struct {
-	Email    string
-	Password string
+	Email string `json:"email"`
+	Senha string `json:"senha"`
 }
 
 // LoginResponse é o modelo de resposta do service
 type LoginResponse struct {
-	Token string
+	Token string `json:"token"`
 }
 
 type AuthService struct {
@@ -65,7 +64,7 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 
 	err = bcrypt.CompareHashAndPassword(
 		[]byte(usuario.Senha),
-		[]byte(req.Password),
+		[]byte(req.Senha),
 	)
 	if err != nil {
 		return nil, ErroEmailSenhaInvalido
@@ -73,9 +72,6 @@ func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginRespon
 
 	claims := jwt.MapClaims{
 		"idUsuario": usuario.ID,
-		"exp": time.Now().
-			Add(time.Hour * time.Duration(s.jwtExpHours)).
-			Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

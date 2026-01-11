@@ -20,7 +20,7 @@ func NewUsuarioRepositoryPg(db *pgxpool.Pool) domainRepo.UsuarioRepository {
 func (r *UsuarioRepositoryPg) BuscarPorEmail(ctx context.Context, email string) (*models.Usuario, error) {
 	row := r.db.QueryRow(
 		ctx,
-		`SELECT id, email, senha FROM usuarios WHERE email = $1`,
+		`SELECT id, email, senha FROM usuario WHERE email = $1`,
 		email,
 	)
 
