@@ -10,27 +10,35 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-var Pool *pgxpool.Pool
-
-func Connect() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
+// NewPostgresPool cria e retorna um pool de conexão com Postgres
+func NewPostgresPool(ctx context.Context) (*pgxpool.Pool, error) {
 	dbURL := os.Getenv("DATABASE_URL")
 	if dbURL == "" {
-		return fmt.Errorf("DATABASE_URL não definida")
+		return nil, fmt.Errorf("DATABASE_URL não definida")
 	}
 
-	pool, err := pgxpool.New(ctx, dbURL)
+	cfg, err := pgxpool.ParseConfig(dbURL)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// testa conexão
-	if err := pool.Ping(ctx); err != nil {
-		return err
+	// Configurações básicas (opcional, mas recomendado)
+	cfg.MaxConns = 10
+	cfg.MinConns = 2
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
+	if err != nil {
+		return nil, err
 	}
 
-	Pool = pool
-	return nil
+	// Testa conexão
+	ctxPing, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+
+	if err := pool.Ping(ctxPing); err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	return pool, nil
 }

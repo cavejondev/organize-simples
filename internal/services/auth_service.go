@@ -2,71 +2,90 @@
 package services
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"os"
+	"strconv"
 	"time"
 
-	"github.com/cavejondev/organize-simples/internal/repositories"
+	"github.com/cavejondev/organize-simples/internal/domain/repositories"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// LoginRequest é o modelo de request deve chegar ao service
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-// LoginResponse é o modelo de resposta que deve ser retornado pelo service
-type LoginResponse struct {
-	Token string `json:"token"`
-}
-
-// Erros
 var (
 	ErroEmailSenhaInvalido = errors.New("email ou senha inválidos")
 	ErroJWTNaoConfigurado  = errors.New("JWT_SECRET não definido")
 )
 
-// Login autentica o usuário
-func Login(req LoginRequest) (*LoginResponse, error) {
-	user, err := repositories.FindUserByEmail(req.Email)
-	if err != nil {
-		return nil, err
-	}
+// LoginRequest é o modelo de request que chega ao service
+type LoginRequest struct {
+	Email    string
+	Password string
+}
 
-	if user == nil {
-		return nil, ErroEmailSenhaInvalido
-	}
+// LoginResponse é o modelo de resposta do service
+type LoginResponse struct {
+	Token string
+}
 
-	err = bcrypt.CompareHashAndPassword([]byte(user.Senha), []byte(req.Password))
-	if err != nil {
-		return nil, ErroEmailSenhaInvalido
-	}
+type AuthService struct {
+	usuarioRepo repositories.UsuarioRepository
+	jwtSecret   string
+	jwtExpHours int
+}
 
-	// Criar token JWT
+func NewAuthService(usuarioRepo repositories.UsuarioRepository) (*AuthService, error) {
 	secret := os.Getenv("JWT_SECRET")
 	if secret == "" {
 		return nil, ErroJWTNaoConfigurado
 	}
 
-	expHours := 24 // padrão
+	expHours := 24
 	if v := os.Getenv("JWT_EXPIRE_HOURS"); v != "" {
-		// converte string para int
-		fmt.Sscanf(v, "%d", &expHours)
+		if h, err := strconv.Atoi(v); err == nil {
+			expHours = h
+		}
+	}
+
+	return &AuthService{
+		usuarioRepo: usuarioRepo,
+		jwtSecret:   secret,
+		jwtExpHours: expHours,
+	}, nil
+}
+
+// Login autentica o usuário e gera um JWT
+func (s *AuthService) Login(ctx context.Context, req LoginRequest) (*LoginResponse, error) {
+
+	usuario, err := s.usuarioRepo.BuscarPorEmail(ctx, req.Email)
+	if err != nil {
+		return nil, ErroEmailSenhaInvalido
+	}
+
+	err = bcrypt.CompareHashAndPassword(
+		[]byte(usuario.Senha),
+		[]byte(req.Password),
+	)
+	if err != nil {
+		return nil, ErroEmailSenhaInvalido
 	}
 
 	claims := jwt.MapClaims{
-		"idUsuario": user.ID,
-		"exp":       time.Now().Add(time.Hour * time.Duration(expHours)).Unix(),
+		"idUsuario": usuario.ID,
+		"exp": time.Now().
+			Add(time.Hour * time.Duration(s.jwtExpHours)).
+			Unix(),
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	ss, err := token.SignedString([]byte(secret))
+
+	ss, err := token.SignedString([]byte(s.jwtSecret))
 	if err != nil {
 		return nil, err
 	}
 
-	return &LoginResponse{Token: ss}, nil
+	return &LoginResponse{
+		Token: ss,
+	}, nil
 }

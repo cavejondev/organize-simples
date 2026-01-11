@@ -16,7 +16,15 @@ var (
 	CodigoErroInterno          = "LOGIN_ERRO_INTERNO"
 )
 
-func Login(w http.ResponseWriter, r *http.Request) {
+type AuthHandler struct {
+	authService *services.AuthService
+}
+
+func NewAuthHandler(authService *services.AuthService) *AuthHandler {
+	return &AuthHandler{authService: authService}
+}
+
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req services.LoginRequest
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -24,12 +32,13 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err := services.Login(req)
+	resp, err := h.authService.Login(r.Context(), req)
+
 	switch err {
 	case nil:
 		utils.Success(w, http.StatusOK, CodigoSucesso, resp)
 	case services.ErroEmailSenhaInvalido:
-		utils.Error(w, http.StatusUnauthorized, CodigoUsuarioSenhaInvalida, err.Error())
+		utils.Error(w, http.StatusUnauthorized, CodigoUsuarioSenhaInvalida, "email ou senha inválidos")
 	default:
 		utils.Error(w, http.StatusInternalServerError, CodigoErroInterno, "erro interno do servidor")
 	}

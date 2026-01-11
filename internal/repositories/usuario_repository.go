@@ -4,20 +4,28 @@ package repositories
 import (
 	"context"
 
-	"github.com/cavejondev/organize-simples/internal/db"
-	"github.com/cavejondev/organize-simples/internal/models"
+	"github.com/cavejondev/organize-simples/internal/domain/models"
+	domainRepo "github.com/cavejondev/organize-simples/internal/domain/repositories"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func FindUserByEmail(email string) (*models.Usuario, error) {
-	row := db.Pool.QueryRow(
-		context.Background(),
-		`SELECT id, email, senha FROM users WHERE email = $1`,
+type UsuarioRepositoryPg struct {
+	db *pgxpool.Pool
+}
+
+func NewUsuarioRepositoryPg(db *pgxpool.Pool) domainRepo.UsuarioRepository {
+	return &UsuarioRepositoryPg{db: db}
+}
+
+func (r *UsuarioRepositoryPg) BuscarPorEmail(ctx context.Context, email string) (*models.Usuario, error) {
+	row := r.db.QueryRow(
+		ctx,
+		`SELECT id, email, senha FROM usuarios WHERE email = $1`,
 		email,
 	)
 
 	var u models.Usuario
-	err := row.Scan(&u.ID, &u.Email, &u.Senha)
-	if err != nil {
+	if err := row.Scan(&u.ID, &u.Email, &u.Senha); err != nil {
 		return nil, err
 	}
 
