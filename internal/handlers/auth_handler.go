@@ -5,38 +5,32 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/cavejondev/organize-simples/internal/repositories"
 	"github.com/cavejondev/organize-simples/internal/services"
-	"golang.org/x/crypto/bcrypt"
+	"github.com/cavejondev/organize-simples/internal/utils"
 )
 
-type LoginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
+var (
+	CodigoSucesso              = "LOGIN_SUCESSO"
+	CodigoUsuarioSenhaInvalida = "LOGIN_USUARIO_SENHA_INVALIDA"
+	CodigoRequisicaoInvalida   = "LOGIN_REQUISICAO_INVALIDA"
+	CodigoErroInterno          = "LOGIN_ERRO_INTERNO"
+)
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	var req LoginRequest
+	var req services.LoginRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, "dados inválidos", http.StatusBadRequest)
+		utils.Error(w, http.StatusBadRequest, CodigoRequisicaoInvalida, "dados inválidos")
 		return
 	}
 
-	user, err := repositories.FindUserByEmail(req.Email)
-	if err != nil {
-		http.Error(w, services.ErroEmailSenhaInvalido.Error(), http.StatusUnauthorized)
-		return
+	resp, err := services.Login(req)
+	switch err {
+	case nil:
+		utils.Success(w, http.StatusOK, CodigoSucesso, resp)
+	case services.ErroEmailSenhaInvalido:
+		utils.Error(w, http.StatusUnauthorized, CodigoUsuarioSenhaInvalida, err.Error())
+	default:
+		utils.Error(w, http.StatusInternalServerError, CodigoErroInterno, "erro interno do servidor")
 	}
-
-	err = bcrypt.CompareHashAndPassword(
-		[]byte(user.Senha),
-		[]byte(req.Password),
-	)
-	if err != nil {
-		http.Error(w, services.ErroEmailSenhaInvalido.Error(), http.StatusUnauthorized)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte(`{"message":"login ok"}`))
 }
